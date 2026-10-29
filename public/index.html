@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>우리 세탁실</title><link rel="stylesheet" href="/style.css"></head>
+<body><header><a href="/" class="brand">◉ 우리 세탁실</a><span class="tag">SHARED LAUNDRY</span><span id="user"></span></header>
+<main><section class="intro"><p class="eyebrow">조금 더 편리한 공동생활</p><h1>빨래할 시간인가요?</h1><p>빈 세탁기를 확인하고, 기다림 없이 시작하세요.</p></section>
+<section id="login" class="login"><div><h2>먼저 이름을 알려주세요.</h2><p>사용 중인 세탁기에 이름이 표시돼요.</p></div><form id="name-form"><label for="name">이름</label><div class="input-row"><input id="name" maxlength="20" placeholder="예: 김세탁" required autocomplete="given-name"><button>입장하기 →</button></div></form></section>
+<section id="dashboard" hidden><div class="section-title"><h2>세탁기 현황 <span>4대</span></h2><span id="connection">상태 확인 중</span></div><div id="machines" class="grid"></div><div class="notice"><span>ⓘ</span><div><strong>세탁이 끝나면, 세탁물을 회수해 주세요.</strong><p>‘세탁물 회수 완료’를 눌러야 다음 사람이 사용할 수 있어요.</p></div></div></section>
+<p id="message" role="status"></p><footer><span>우리 함께 쓰는 세탁실</span><span><a href="/admin">관리자</a></span></footer></main><script type="module" src="/app.js"></script></body></html>
+

@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>관리자 · 우리 세탁실</title><link rel="stylesheet" href="/style.css"></head>
+<body><header><a href="/" class="brand">◉ 우리 세탁실</a><span class="tag">ADMIN</span><button id="logout" hidden style="margin-left:auto">로그아웃</button></header><main>
+<section class="intro"><p class="eyebrow">세탁실 관리</p><h1>관리자 패널</h1><p>세탁 시간을 설정하고 세탁기의 사용 상태를 관리하세요.</p></section>
+<section id="login" class="login"><div><h2>관리자 로그인</h2><p>관리자 비밀번호를 입력해 주세요.</p></div><form id="login-form"><label for="password">비밀번호</label><div class="input-row"><input id="password" type="password" autocomplete="current-password" required><button>로그인</button></div></form></section>
+<section id="panel" hidden><section class="login" style="margin-bottom:32px"><div><h2>세탁 시간 설정</h2><p>변경한 시간은 다음에 시작하는 세탁부터 적용됩니다.<br>진행 중인 세탁의 종료 시각은 유지됩니다.</p></div><form id="settings-form"><label for="seconds">세탁 시간 (초, 1~86400)</label><div class="input-row"><input id="seconds" type="number" min="1" max="86400" step="1" required><button>저장</button></div><p id="current-duration"></p></form></section>
+<div class="section-title"><h2>세탁기 관리</h2><span id="connection"></span></div><div id="machines" class="grid"></div><div class="notice">강제 비우기는 세탁 중에도 사용자를 해제하고 즉시 사용 가능 상태로 되돌립니다. 실제 세탁기를 멈추는 기능은 아닙니다.</div></section>
+<p id="message" role="status" aria-live="polite"></p><footer><a href="/">← 세탁실로 돌아가기</a></footer></main><script type="module" src="/admin.js"></script></body></html>
