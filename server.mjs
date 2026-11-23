@@ -28,14 +28,14 @@ const hash=value=>createHash('sha256').update(value).digest();
 const adminToken=req=>req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('laundry_admin='))?.slice(14);
 const isAdmin=req=>{const token=adminToken(req),expires=adminSessions.get(token);if(expires>Date.now())return true;adminSessions.delete(token);return false;};
 const cookie=(token,age)=>`laundry_admin=${token}; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=${age}${process.env.RENDER?'; Secure':''}`;
-const snapshot=()=>state.machines.map(m=>({id:m.id,type:m.type,name:m.owner?state.users[m.owner]:null,status:!m.owner?'available':Date.now()<m.end?'washing':'collection',end:m.end,evictable:Boolean(m.owner&&Date.now()>=m.end+COLLECTION_GRACE_MS)}));
+const snapshot=(token,hideOtherNames=true)=>state.machines.map(m=>({id:m.id,type:m.type,name:!m.owner?null:m.owner===token||!hideOtherNames?state.users[m.owner]:'다른 사용자',status:!m.owner?'available':Date.now()<m.end?'washing':'collection',end:m.end,evictable:Boolean(m.owner&&Date.now()>=m.end+COLLECTION_GRACE_MS)}));
 const server=http.createServer(async(req,res)=>{
  const send=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(obj));};
  try{
-  if(req.method==='GET'&&req.url==='/api/machines')return send(200,{machines:snapshot(),now:Date.now(),washSeconds:WASH_SECONDS});
+  if(req.method==='GET'&&req.url==='/api/machines')return send(200,{machines:snapshot(req.headers.authorization?.replace('Bearer ','')),now:Date.now(),washSeconds:WASH_SECONDS});
   if(req.method==='GET'&&req.url==='/api/admin/state'){
    if(!isAdmin(req))return send(401,{error:'관리자 로그인이 필요합니다.'});
-   return send(200,{machines:snapshot(),lostCount:state.lostItems.length,now:Date.now()});
+   return send(200,{machines:snapshot(null,false),lostCount:state.lostItems.length,now:Date.now()});
   }
   if(req.method==='POST'){
    let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(413,{error:'요청이 너무 큽니다.'});}
@@ -65,7 +65,7 @@ const server=http.createServer(async(req,res)=>{
    }
    const token=req.headers.authorization?.replace('Bearer ','');
    if(!state.users[token])return send(401,{error:'이름을 다시 입력해 주세요.'});
-   if(req.url==='/api/me')return send(200,{name:state.users[token],owned:state.machines.filter(m=>m.owner===token).map(m=>m.id),lostItems:state.lostItems.filter(item=>item.owner===token)});
+   if(req.url==='/api/me')return send(200,{name:state.users[token],owned:state.machines.filter(m=>m.owner===token).map(m=>m.id),lostItems:state.lostItems.map(item=>({id:item.id,machineId:item.machineId,machineName:item.machineName,movedAt:item.movedAt,canCollect:item.owner===token}))});
    const lostMatch=req.url.match(/^\/api\/lost\/([\w-]+)\/collect$/);
    if(lostMatch){const item=state.lostItems.find(item=>item.id===lostMatch[1]);if(!item)return send(404,{error:'바구니에서 세탁물을 찾을 수 없습니다.'});if(item.owner!==token)return send(403,{error:'본인 세탁물만 회수할 수 있습니다.'});state.lostItems=state.lostItems.filter(entry=>entry.id!==item.id);save();return send(200,{ok:true});}
    const match=req.url.match(/^\/api\/machines\/([1-8])\/(start|collect|evict)$/);
@@ -76,8 +76,8 @@ const server=http.createServer(async(req,res)=>{
     m.owner=token;m.end=Date.now()+WASH_SECONDS*1000;
    }else if(match[2]==='evict'){
     if(!m.owner)return send(409,{error:'기기를 사용할 수 있습니다.'});
-    if(m.owner===token)return send(403,{error:'본인 세탁물은 Evict 할 수 없습니다.'});
-    if(Date.now()<m.end+COLLECTION_GRACE_MS)return send(409,{error:'작동 종료 후 10초가 지나야 Evict 할 수 있습니다.'});
+    if(m.owner===token)return send(403,{error:'본인 세탁물은 강제 회수할 수 없습니다.'});
+    if(Date.now()<m.end+COLLECTION_GRACE_MS)return send(409,{error:'작동 종료 후 10초가 지나야 강제 회수할 수 있습니다.'});
     state.lostItems.push({id:randomUUID(),owner:m.owner,name:state.users[m.owner]||'사용자',machineId:m.id,machineName:`${m.type==='dryer'?'건조기':'세탁기'} ${m.type==='dryer'?m.id-4:m.id}`,movedAt:Date.now()});
     m.owner=null;m.end=0;save();return send(200,{ok:true,evicted:true});
    }else{
