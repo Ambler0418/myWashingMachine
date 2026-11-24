@@ -78,13 +78,13 @@ const server=http.createServer(async(req,res)=>{
    if(req.url==='/api/login'){
     const studentId=typeof body.studentId==='string'?body.studentId.trim():'';
     const name=typeof body.name==='string'?body.name.trim():'';
-    if(!studentId||studentId.length>20)return send(400,{error:'학번을 1~20자로 입력해 주세요.'});
+    if(!/^\d{4}-\d{5}$/.test(studentId))return send(400,{error:'학번은 숫자 4자리-5자리 형식으로 입력해 주세요.'});
     if(!name||name.length>20)return send(400,{error:'이름을 1~20자로 입력해 주세요.'});
     const existing=Object.entries(state.users).find(([,user])=>user.studentId===studentId&&user.name===name);
     const token=existing?.[0]||randomUUID();state.users[token]={...(existing?.[1]||{}),studentId,name,selectedType:existing?.[1].selectedType||null,sessionStarted:Boolean(existing?.[1].sessionStarted)};save();return send(200,{token,studentId,name});
    }
    const token=req.headers.authorization?.replace('Bearer ','');
-   if(!state.users[token])return send(401,{error:'이름을 다시 입력해 주세요.'});
+   if(!state.users[token])return send(401,{error:'로그인 정보가 만료되었습니다. 다시 로그인해 주세요.'});
    if(clearExpiredAssignments())save();
    if(req.url==='/api/me')return send(200,{...userInfo(token),owned:state.machines.filter(m=>m.owner===token).map(m=>m.id),assignment:(()=>{const m=state.machines.find(m=>m.assignedTo===token);return m?{machineId:m.id,type:m.type,expiresAt:m.assignmentExpiresAt}:null;})(),lostItems:state.lostItems.map(item=>({id:item.id,machineId:item.machineId,machineName:item.machineName,movedAt:item.movedAt,canCollect:item.owner===token}))});
    if(req.url==='/api/logout'){
@@ -103,6 +103,7 @@ const server=http.createServer(async(req,res)=>{
     const type=body.type;
     if(type!=='washer'&&type!=='dryer')return send(400,{error:'세탁기 또는 건조기를 선택해 주세요.'});
     if(state.machines.some(m=>m.owner===token))return send(409,{error:'사용 중인 기기를 먼저 회수해 주세요.'});
+    if(state.users[token].sessionStarted)return send(409,{error:'새로 배정받기 버튼을 눌러 다음 이용을 시작해 주세요.'});
     const target=state.machines.find(m=>m.type===type&&!m.owner&&(!m.assignedTo||m.assignedTo===token));
     if(!target)return send(409,{error:`배정 가능한 ${type==='washer'?'세탁기':'건조기'}가 없습니다.`});
     for(const m of state.machines)if(m.assignedTo===token&&m.id!==target.id){m.assignedTo=null;m.assignmentExpiresAt=0;}
