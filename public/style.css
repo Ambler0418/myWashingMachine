@@ -28,3 +28,5 @@ footer{border-top:1px solid #dfe6df;margin-top:50px;padding-top:18px;display:fle
 .assigned .badge{background:#fff0d8;color:#936b25}.assigned .door{background:#fff3dd;border-color:#f1e5ca;color:#936b25}.assigned-mine{border-color:#d8b96e;box-shadow:0 0 0 2px #f5ebd3}
 .login-fields{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) auto;gap:8px;align-items:end}.login-fields input{width:100%}.form-note{margin:8px 0 0;font-size:11px}.type-actions{display:flex;gap:10px}
 @media(max-width:520px){.login-fields{grid-template-columns:1fr 1fr}.login-fields button{grid-column:1/-1}.type-actions{width:100%;flex-direction:column}.type-actions button{width:100%}}
+header #new-assignment,header #user-logout{font-size:12px;padding:9px 12px;white-space:nowrap}
+@media(max-width:520px){header{gap:8px}header #user{font-size:11px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header #new-assignment,header #user-logout{font-size:10px;padding:8px 7px}}

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>공동 세탁실</title><link rel="stylesheet" href="/style.css"></head>
-<body><header><a href="/" class="brand">공동 세탁실</a><span id="user"></span></header>
+<body><header><a href="/" class="brand">공동 세탁실</a><span id="user"></span><button id="new-assignment" hidden>새로 배정받기</button><button id="user-logout" hidden>로그아웃</button></header>
 <main>
 <section id="login" class="login"><div><h1>학생증 정보 입력</h1><p>학번과 이름을 입력해 주세요.</p></div><form id="login-form"><div class="login-fields"><div><label for="student-id">학번</label><input id="student-id" maxlength="20" placeholder="학번" required autocomplete="username"></div><div><label for="name">이름</label><input id="name" maxlength="20" placeholder="이름" required autocomplete="name"></div><button>확인</button></div><p class="form-note">현재 시연은 입력한 정보를 사용하며, 실제 학생증 인증은 하지 않습니다.</p></form></section>
 <section id="choose-type" class="login" hidden><div><h1>이용할 기기 선택</h1><p>선택 후 10초 안에 기기를 시작해 주세요. 다른 빈 기기를 시작해도 배정이 자동으로 변경됩니다.</p></div><div class="type-actions"><button data-type="washer">세탁기 사용</button><button data-type="dryer">건조기 사용</button></div></section>

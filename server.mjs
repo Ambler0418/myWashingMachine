@@ -13,6 +13,7 @@ const makeMachines=()=>[
 ];
 let state=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{users:{},machines:makeMachines(),lostItems:[]};
 state.users??={};
+state.users=Object.fromEntries(Object.entries(state.users).map(([token,user])=>[token,typeof user==='string'?{studentId:'',name:user,selectedType:null,sessionStarted:false}:{...user,selectedType:user.selectedType||null,sessionStarted:Boolean(user.sessionStarted)}]));
 state.machines??=makeMachines();
 state.machines=state.machines.map((m,i)=>({...m,id:i+1,type:m.type||(i<4?'washer':'dryer'),assignedTo:m.assignedTo||null,assignmentExpiresAt:m.assignmentExpiresAt||0}));
 for(const machine of makeMachines())if(!state.machines.some(m=>m.id===machine.id))state.machines.push(machine);
@@ -20,11 +21,11 @@ state.machines.sort((a,b)=>a.id-b.id);
 state.lostItems??=[];
 const WASH_SECONDS=10, COLLECTION_GRACE_MS=10*1000, ASSIGNMENT_TIMEOUT_MS=10*1000;
 const save=()=>{writeFileSync(file+'.tmp',JSON.stringify(state));renameSync(file+'.tmp',file);};
-const userInfo=token=>{const user=state.users[token];return typeof user==='string'?{studentId:'',name:user}:user||null;};
+const userInfo=token=>state.users[token]||null;
 const userName=token=>userInfo(token)?.name||'사용자';
 const clearExpiredAssignments=(now=Date.now())=>{
  let changed=false;
- for(const m of state.machines)if(m.assignedTo&&m.assignmentExpiresAt<=now){m.assignedTo=null;m.assignmentExpiresAt=0;changed=true;}
+ for(const m of state.machines)if(m.assignedTo&&m.assignmentExpiresAt<=now){const user=state.users[m.assignedTo];if(user){user.selectedType=null;user.sessionStarted=false;}m.assignedTo=null;m.assignmentExpiresAt=0;changed=true;}
  return changed;
 };
 delete state.settings;clearExpiredAssignments();save();
@@ -71,7 +72,7 @@ const server=http.createServer(async(req,res)=>{
     if(!isAdmin(req))return send(401,{error:'관리자 로그인이 필요합니다.'});
     if(req.url==='/api/admin/logout'){adminSessions.delete(adminToken(req));res.setHeader('Set-Cookie',cookie('',0));return send(200,{ok:true});}
     const evict=req.url.match(/^\/api\/admin\/machines\/([1-8])\/evict$/);
-    if(evict){const m=state.machines[Number(evict[1])-1];m.owner=null;m.end=0;m.assignedTo=null;m.assignmentExpiresAt=0;save();return send(200,{ok:true});}
+    if(evict){const m=state.machines[Number(evict[1])-1];const affected=state.users[m.owner||m.assignedTo];if(affected){affected.selectedType=null;affected.sessionStarted=false;}m.owner=null;m.end=0;m.assignedTo=null;m.assignmentExpiresAt=0;save();return send(200,{ok:true});}
     return send(404,{error:'찾을 수 없습니다.'});
    }
    if(req.url==='/api/login'){
@@ -79,12 +80,25 @@ const server=http.createServer(async(req,res)=>{
     const name=typeof body.name==='string'?body.name.trim():'';
     if(!studentId||studentId.length>20)return send(400,{error:'학번을 1~20자로 입력해 주세요.'});
     if(!name||name.length>20)return send(400,{error:'이름을 1~20자로 입력해 주세요.'});
-    const token=randomUUID();state.users[token]={studentId,name};save();return send(200,{token,studentId,name});
+    const existing=Object.entries(state.users).find(([,user])=>user.studentId===studentId&&user.name===name);
+    const token=existing?.[0]||randomUUID();state.users[token]={...(existing?.[1]||{}),studentId,name,selectedType:existing?.[1].selectedType||null,sessionStarted:Boolean(existing?.[1].sessionStarted)};save();return send(200,{token,studentId,name});
    }
    const token=req.headers.authorization?.replace('Bearer ','');
    if(!state.users[token])return send(401,{error:'이름을 다시 입력해 주세요.'});
    if(clearExpiredAssignments())save();
    if(req.url==='/api/me')return send(200,{...userInfo(token),owned:state.machines.filter(m=>m.owner===token).map(m=>m.id),assignment:(()=>{const m=state.machines.find(m=>m.assignedTo===token);return m?{machineId:m.id,type:m.type,expiresAt:m.assignmentExpiresAt}:null;})(),lostItems:state.lostItems.map(item=>({id:item.id,machineId:item.machineId,machineName:item.machineName,movedAt:item.movedAt,canCollect:item.owner===token}))});
+   if(req.url==='/api/logout'){
+    if(!state.machines.some(m=>m.owner===token)){
+     for(const m of state.machines)if(m.assignedTo===token){m.assignedTo=null;m.assignmentExpiresAt=0;}
+     state.users[token].selectedType=null;state.users[token].sessionStarted=false;
+    }
+    save();return send(200,{ok:true});
+   }
+   if(req.url==='/api/new-assignment'){
+    if(state.machines.some(m=>m.owner===token))return send(409,{error:'현재 기기의 세탁물을 회수한 뒤 새로 배정받을 수 있습니다.'});
+    for(const m of state.machines)if(m.assignedTo===token){m.assignedTo=null;m.assignmentExpiresAt=0;}
+    state.users[token].selectedType=null;state.users[token].sessionStarted=false;save();return send(200,{ok:true});
+   }
    if(req.url==='/api/assign'){
     const type=body.type;
     if(type!=='washer'&&type!=='dryer')return send(400,{error:'세탁기 또는 건조기를 선택해 주세요.'});
@@ -92,6 +106,7 @@ const server=http.createServer(async(req,res)=>{
     const target=state.machines.find(m=>m.type===type&&!m.owner&&(!m.assignedTo||m.assignedTo===token));
     if(!target)return send(409,{error:`배정 가능한 ${type==='washer'?'세탁기':'건조기'}가 없습니다.`});
     for(const m of state.machines)if(m.assignedTo===token&&m.id!==target.id){m.assignedTo=null;m.assignmentExpiresAt=0;}
+    state.users[token].selectedType=type;state.users[token].sessionStarted=false;
     target.assignedTo=token;target.assignmentExpiresAt=Date.now()+ASSIGNMENT_TIMEOUT_MS;save();
     return send(200,{ok:true,assignment:{machineId:target.id,type:target.type,expiresAt:target.assignmentExpiresAt}});
    }
@@ -103,9 +118,13 @@ const server=http.createServer(async(req,res)=>{
    if(match[2]==='start'){
     if(m.owner)return send(409,{error:'이미 사용 중인 기기입니다.'});
     if(m.assignedTo&&m.assignedTo!==token)return send(409,{error:'다른 사용자에게 배정된 기기입니다.'});
+    const user=state.users[token];
+    if(!user.selectedType)return send(409,{error:'먼저 기기를 새로 배정받아 주세요.'});
+    if(m.type!==user.selectedType)return send(409,{error:`배정한 ${user.selectedType==='washer'?'세탁기':'건조기'} 종류의 기기만 시작할 수 있습니다.`});
+    if(user.sessionStarted)return send(409,{error:'이번 배정에서 이미 기기를 시작했습니다. 세탁물을 회수한 뒤 새로 배정받아 주세요.'});
     const reassigned=state.machines.some(machine=>machine.assignedTo===token&&machine.id!==m.id);
     for(const machine of state.machines)if(machine.assignedTo===token){machine.assignedTo=null;machine.assignmentExpiresAt=0;}
-    m.owner=token;m.end=Date.now()+WASH_SECONDS*1000;
+    m.owner=token;m.end=Date.now()+WASH_SECONDS*1000;user.sessionStarted=true;
     save();return send(200,{ok:true,reassigned});
    }else if(match[2]==='evict'){
     if(!m.owner)return send(409,{error:'기기를 사용할 수 있습니다.'});
