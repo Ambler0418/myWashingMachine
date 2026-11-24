@@ -2,7 +2,8 @@
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>공동 세탁실</title><link rel="stylesheet" href="/style.css"></head>
 <body><header><a href="/" class="brand">공동 세탁실</a><span id="user"></span></header>
 <main>
-<section id="login" class="login"><div><h1>이름 입력</h1></div><form id="name-form"><label for="name">이름</label><div class="input-row"><input id="name" maxlength="20" placeholder="이름" required autocomplete="given-name"><button>확인</button></div></form></section>
-<section id="dashboard" hidden><div class="section-title"><h1>기기</h1><span id="connection" aria-live="polite"></span></div><div id="machines" class="grid"></div>
+<section id="login" class="login"><div><h1>학생증 정보 입력</h1><p>학번과 이름을 입력해 주세요.</p></div><form id="login-form"><div class="login-fields"><div><label for="student-id">학번</label><input id="student-id" maxlength="20" placeholder="학번" required autocomplete="username"></div><div><label for="name">이름</label><input id="name" maxlength="20" placeholder="이름" required autocomplete="name"></div><button>확인</button></div><p class="form-note">현재 시연은 입력한 정보를 사용하며, 실제 학생증 인증은 하지 않습니다.</p></form></section>
+<section id="choose-type" class="login" hidden><div><h1>이용할 기기 선택</h1><p>선택 후 10초 안에 기기를 시작해 주세요. 다른 빈 기기를 시작해도 배정이 자동으로 변경됩니다.</p></div><div class="type-actions"><button data-type="washer">세탁기 사용</button><button data-type="dryer">건조기 사용</button></div></section>
+<section id="dashboard" hidden><div class="section-title"><h1>세탁기 · 건조기</h1><span id="connection" aria-live="polite"></span></div><div id="machines" class="grid"></div>
 <section id="lost-section" class="lost-section"><div class="lost-heading"><div class="basket-icon" id="basket-target" aria-hidden="true"><span></span></div><div><h2>미회수 바구니 <span id="lost-count">0</span></h2><p id="lost-empty">미회수 세탁물이 없습니다.</p></div></div><div id="lost-items" class="lost-list"></div></section></section>
 <p id="message" role="status" aria-live="polite"></p><footer><a href="/admin">관리자</a></footer></main><script type="module" src="/app.js"></script></body></html>

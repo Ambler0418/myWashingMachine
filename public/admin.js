@@ -8,11 +8,11 @@ async function refresh(){
   const card=document.createElement('article');card.className='card '+m.status;
   const type=m.type==='dryer'?'건조기':'세탁기',number=m.type==='dryer'?m.id-4:m.id;
   const title=document.createElement('h3');title.textContent=`${type} ${number}`;
-  const status=document.createElement('p');status.textContent=({available:'사용 가능',washing:'작동 중',collection:'회수 대기'})[m.status];
-  const owner=document.createElement('p');owner.textContent=m.name?`${m.name} 사용 중`:'사용자 없음';
-  const remaining=document.createElement('p');remaining.textContent=m.status==='washing'?`남은 시간 ${Math.max(0,Math.ceil((m.end-data.now)/1000))}초`:'';
-  const button=document.createElement('button');button.textContent='사용 해제';button.disabled=busy||m.status==='available';
-  button.onclick=()=>{if(confirm(`${type} ${number} 사용을 해제할까요?`))run(()=>api('machines/'+m.id+'/evict',{}),'사용을 해제했습니다.');};
+  const status=document.createElement('p');status.textContent=({available:'사용 가능',assigned:'배정됨',washing:'작동 중',collection:'회수 대기'})[m.status];
+  const owner=document.createElement('p');owner.textContent=m.name?`${m.studentId?m.studentId+' · ':''}${m.name}${m.status==='assigned'?' 배정 대기':' 사용 중'}`:'사용자 없음';
+  const remaining=document.createElement('p');remaining.textContent=m.status==='washing'?`남은 시간 ${Math.max(0,Math.ceil((m.end-data.now)/1000))}초`:m.status==='assigned'?`배정 만료까지 ${Math.max(0,Math.ceil((m.assignmentExpiresAt-data.now)/1000))}초`:'';
+  const button=document.createElement('button');button.textContent=m.status==='assigned'?'배정 해제':'사용 해제';button.disabled=busy||m.status==='available';
+  button.onclick=()=>{if(confirm(`${type} ${number} ${m.status==='assigned'?'배정을':'사용을'} 해제할까요?`))run(()=>api('machines/'+m.id+'/evict',{}),m.status==='assigned'?'배정을 해제했습니다.':'사용을 해제했습니다.');};
   card.append(title,status,owner,remaining,button);return card;
  }));
 }
