@@ -52,7 +52,8 @@ const snapshot=(token,hideOtherNames=true,now=Date.now())=>state.machines.map(m=
  const owner=userInfo(m.owner),assignee=userInfo(m.assignedTo);
  const status=m.owner?(now<m.end?'washing':'collection'):m.assignedTo?'assigned':'available';
  const person=m.owner?owner:assignee;
- return {id:m.id,type:m.type,name:!person?null:(!hideOtherNames||m.owner===token||m.assignedTo===token)?person.name:'다른 사용자',studentId:!person?null:(!hideOtherNames||m.owner===token||m.assignedTo===token)?person.studentId:'',status,end:m.end,assignedToMe:Boolean(m.assignedTo&&m.assignedTo===token),assignmentExpiresAt:m.assignmentExpiresAt||0,evictable:canForceCollect(m,now)};
+ const availableAt=m.owner?m.end+COLLECTION_GRACE_MS:m.assignmentExpiresAt||now;
+ return {id:m.id,type:m.type,name:!person?null:(!hideOtherNames||m.owner===token||m.assignedTo===token)?person.name:'다른 사용자',studentId:!person?null:(!hideOtherNames||m.owner===token||m.assignedTo===token)?person.studentId:'',status,end:m.end,assignedToMe:Boolean(m.assignedTo&&m.assignedTo===token),assignmentExpiresAt:m.assignmentExpiresAt||0,evictable:canForceCollect(m,now),availableAt};
 });
 const server=http.createServer(async(req,res)=>{
  const send=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(obj));};

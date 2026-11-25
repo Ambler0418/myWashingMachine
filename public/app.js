@@ -26,6 +26,7 @@ function animateTransfer(origin){
  animation.finished.then(()=>cloth.remove()).catch(()=>cloth.remove());
 }
 function render(){
+ $('#new-assignment').textContent=assignment?'배정 취소':'새로 배정받기';
  for(const button of document.querySelectorAll('[data-type]')){
   const type=button.dataset.type;
   const label=type==='washer'?'세탁기':'건조기';
@@ -37,6 +38,13 @@ function render(){
   if(empty)button.textContent=label+' 배정받기';
   else if(reclaim)button.textContent=label+' 강제 회수 후 배정받기';
   else button.textContent=label+' 배정 불가';
+  const wait=$('#'+type+'-wait');
+  wait.hidden=empty||reclaim||group.length===0;
+  if(!wait.hidden){
+   const earliest=Math.min(...group.map(m=>m.availableAt));
+   const seconds=Math.max(1,Math.ceil((earliest-Date.now()-offset)/1000));
+   wait.textContent=seconds+'초 후 사용 가능';
+  }
  }
  $('#machines').replaceChildren(...machines.map(m=>{
   const mine=owned.includes(m.id),available=m.status==='available',assigned=m.status==='assigned',assignedToMe=m.assignedToMe,washing=m.status==='washing';
@@ -51,7 +59,7 @@ function render(){
   else door.textContent=assigned?(assignedToMe?'내 배정':'배정'):m.status==='collection'?'회수':m.type==='dryer'?'건조':'세탁';
   card.querySelector('strong').textContent=available?'사용 가능':assigned?(assignedToMe?'나에게 배정됨':'다른 사람에게 배정됨'):`${m.name||'사용자'}${mine?' (내 기기)':''}`;
   const left=Math.max(0,Math.ceil((m.end-Date.now()-offset)/1000));
-  const evictWait=Math.max(0,Math.ceil((m.end+10000-Date.now()-offset)/1000));
+  const evictWait=Math.max(0,Math.ceil((m.availableAt-Date.now()-offset)/1000));
   const assignmentLeft=Math.max(0,Math.ceil((m.assignmentExpiresAt-Date.now()-offset)/1000));
   const wrongCategory=Boolean(selectedType&&m.type!==selectedType&&(available||assigned));
   card.querySelector('.detail p').textContent=available?`작동 시간 ${washSeconds}초`:assigned?assignedToMe?`시작까지 ${assignmentLeft}초`:'배정 사용자 대기 중':washing?`남은 시간 ${left}초`:mine?'세탁물을 회수해 주세요':m.evictable?'다른 사용자가 강제 회수할 수 있습니다':`강제 회수 가능까지 ${evictWait}초`;
