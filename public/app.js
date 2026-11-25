@@ -26,6 +26,18 @@ function animateTransfer(origin){
  animation.finished.then(()=>cloth.remove()).catch(()=>cloth.remove());
 }
 function render(){
+ for(const button of document.querySelectorAll('[data-type]')){
+  const type=button.dataset.type;
+  const label=type==='washer'?'세탁기':'건조기';
+  const group=machines.filter(m=>m.type===type);
+  const empty=group.some(m=>m.status==='available');
+  const reclaim=!empty && group.some(m=>m.evictable);
+  button.disabled=busy || (!empty && !reclaim);
+  button.dataset.reclaim=String(reclaim);
+  if(empty)button.textContent=label+' 배정받기';
+  else if(reclaim)button.textContent=label+' 강제 회수 후 배정받기';
+  else button.textContent=label+' 배정 불가';
+ }
  $('#machines').replaceChildren(...machines.map(m=>{
   const mine=owned.includes(m.id),available=m.status==='available',assigned=m.status==='assigned',assignedToMe=m.assignedToMe,washing=m.status==='washing';
   const device=m.type==='dryer'?'건조기':'세탁기',number=m.type==='dryer'?m.id-4:m.id;
@@ -51,20 +63,36 @@ function render(){
   return card;
  }));renderLost();
 }
-async function refresh(animateNew=true){try{
+let refreshVersion=0,polling=false;
+async function refresh(animateNew=true){
+ const version=++refreshVersion,requestToken=token;
+ try{
  const origins=new Map(machines.map(m=>{const rect=document.querySelector(`[data-machine-id="${m.id}"] .door`)?.getBoundingClientRect();return[m.id,rect&&{x:rect.x,y:rect.y,width:rect.width,height:rect.height}];}));
  const oldLostIds=new Set(lostItems.map(item=>item.id));
- const [state,me]=await Promise.all([api('machines'),api('me',{})]);
+ const state=await api('status',{visible:!document.hidden});
+ if(version!==refreshVersion||requestToken!==token)return;
+ const me=state.me;
+ $('#waiting-count').textContent=state.waitingCount+'명';
  const previousAssignment=assignment;
  machines=state.machines;washSeconds=state.washSeconds;assignmentTimeoutSeconds=state.assignmentTimeoutSeconds||10;offset=state.now-Date.now();owned=me.owned;assignment=me.assignment;sessionStarted=me.sessionStarted;selectedType=me.selectedType;lostItems=me.lostItems||[];
  $('#user').textContent=`${me.studentId?me.studentId+' · ':''}${me.name}`;$('#login').hidden=true;$('#new-assignment').hidden=false;$('#user-logout').hidden=false;$('#choose-type').hidden=Boolean(assignment)||owned.length>0||sessionStarted;$('#dashboard').hidden=$('#choose-type').hidden===false;$('#choose-type p').textContent=`선택 후 ${assignmentTimeoutSeconds}초 안에 기기를 시작해 주세요. 다른 빈 ${selectedType==='dryer'?'건조기':'세탁기'}를 시작하면 배정이 실제 사용 기기로 변경됩니다.`;$('#connection').textContent='';
  if(previousAssignment&&!assignment&&owned.length===0)$('#message').textContent='배정이 취소되었습니다. 기기를 다시 선택해 주세요.';
  render();
  if(animateNew)for(const item of lostItems)if(!oldLostIds.has(item.id)&&origins.has(item.machineId))animateTransfer(origins.get(item.machineId));
- }catch(e){if(e.status===401){showLogin(e.message);return;}$('#connection').textContent='연결 오류';$('#message').textContent=e.message;}}
+ }catch(e){if(version!==refreshVersion||requestToken!==token)return;if(e.status===401){showLogin(e.message);return;}$('#waiting-count').textContent='확인 불가';$('#connection').textContent='연결 오류';$('#message').textContent=e.message;}}
 async function runAction(action,machineId=null){if(busy)return;const rect=machineId?document.querySelector(`[data-machine-id="${machineId}"] .door`)?.getBoundingClientRect():null;const origin=rect&&{x:rect.x,y:rect.y,width:rect.width,height:rect.height};busy=true;render();try{const result=await action();$('#message').textContent=result?.reassigned?'다른 기기를 시작해 배정을 변경했습니다.':'';await refresh(!result?.evicted);if(result?.evicted)animateTransfer(origin);}catch(e){if(e.status===401)showLogin(e.message);else $('#message').textContent=e.message;}finally{busy=false;render();}}
 $('#login-form').onsubmit=async e=>{e.preventDefault();try{const user=await api('login',{studentId:$('#student-id').value,name:$('#name').value});token=user.token;localStorage.setItem('laundry-token',token);$('#message').textContent='';await refresh();}catch(e){$('#message').textContent=e.message;}};
-document.querySelectorAll('[data-type]').forEach(button=>button.onclick=()=>runAction(()=>api('assign',{type:button.dataset.type})));
+document.querySelectorAll('[data-type]').forEach(button=>button.onclick=()=>{
+ const options={type:button.dataset.type,allowForceCollect:button.dataset.reclaim==='true'};
+ return runAction(()=>api('assign',options));
+});
 $('#new-assignment').onclick=()=>runAction(()=>api('new-assignment',{}));
 $('#user-logout').onclick=async()=>{if(busy)return;try{await api('logout',{});showLogin('로그아웃했습니다.');}catch(e){if(e.status===401)showLogin(e.message);else $('#message').textContent=e.message;}};
-if(token)await refresh();setInterval(()=>{if(token&&!busy)refresh();},1000);
+async function pollStatus(){
+ if(!token||busy||polling)return;
+ polling=true;
+ try{await refresh();}finally{polling=false;}
+}
+await pollStatus();
+setInterval(pollStatus,1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollStatus();});
